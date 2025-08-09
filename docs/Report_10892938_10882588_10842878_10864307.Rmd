@@ -1,0 +1,1325 @@
+---
+title: "Math 501 Modelling and Analytics for Data Science Coursework"
+author: "10892938; 10882588; 10842878; 10864307"
+date: "2024-04-11"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Machine Learning Task
+
+## **Machine Learning Part (A)**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Machine Learning------------------------------------------------------------
+
+# Part (a)------------------------------------------------
+library(ggplot2)
+
+# Load the data
+data <- read.table("earthquake.txt", header = TRUE, sep = " ")
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Generate numerical summaries
+summary(data)
+```
+
+From these summaries, we can infer the following:
+
+-   The average body-wave magnitude is very close to the median, indicating a relatively symmetrical distribution of body-wave magnitude values around the central value.
+
+-   The average surface-wave magnitude is also close to the median, suggesting a similar symmetrical distribution for surface-wave magnitudes.
+
+-   There is a broader range of surface-wave magnitudes (from 3.71 to 6.34) compared to body-wave magnitudes (from 4.65 to 6.47). This might indicate that surface-wave magnitudes can vary more widely for the events in the dataset.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Boxplots to show the distribution of body and surface magnitudes by type
+ggplot(data, aes(x = type, y = body, fill = type)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of body magnitude by type",
+       x = "Type",
+       y = "Body-wave magnitude (mb)") +
+  theme_minimal()
+
+ggplot(data, aes(x = type, y = surface, fill = type)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of surface magnitude by type",
+       x = "Type",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+
+```
+
+The boxplot provided shows the distribution of surface-wave magnitudes (Ms) for two different types of seismic events: earthquakes (labeled as "equake") and nuclear explosions (labeled as "explosn"). Here are some insights based on the boxplot:
+
+-   The earthquakes generally have higher surface-wave magnitudes compared to the nuclear explosions, as indicated by the position of the red box (earthquakes) being overall higher than the cyan box (nuclear explosions).
+
+-   The median surface-wave magnitude for earthquakes is above 5.0, whereas for nuclear explosions, it is below 5.0. This is evident from the location of the line within each box that represents the median.
+
+-   The interquartile range (IQR), which is the distance between the first and third quartiles, is larger for earthquakes than for nuclear explosions. This suggests that there is a greater variability in the surface-wave magnitudes of earthquakes.
+
+-   There are no outliers represented in the boxplot for either type of event, which would be indicated by points beyond the "whiskers" or the lines extending from the boxes.
+
+-   The boxplot indicates that there is a clear separation between the surface-wave magnitudes of earthquakes and nuclear explosions, which could be a useful feature for constructing a rule to distinguish between the two types of events.
+
+```{r echo=FALSE}
+
+# Scatter plot to show the distribution of body and surface magnitudes by type
+ggplot(data, aes(x = body, y = surface, color = type)) +
+  geom_point() +
+  labs(title = "Scatter plot of body vs. surface magnitude",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+```
+
+The scatter plot depicts the relationship between body-wave magnitude (mb) and surface-wave magnitude (Ms) for seismic events classified into two types: earthquakes (red points) and nuclear explosions (cyan points).
+
+From the scatter plot, we can observe the following:
+
+-   Earthquakes (red points) are generally associated with higher surface-wave magnitudes as compared to nuclear explosions. This trend is consistent with the earlier boxplot analysis.
+
+-   Nuclear explosions (cyan points) tend to cluster in a lower range of both body-wave and surface-wave magnitudes. Moreover, there is less variability in their magnitudes compared to earthquakes.
+
+-   There appears to be a positive correlation between body-wave and surface-wave magnitudes for earthquakes, meaning as the magnitude of body-waves increases, the surface-wave magnitude also tends to increase.
+
+-   The separation between the two types of events is quite clear, with only a small overlap. This suggests that the two features, body-wave and surface-wave magnitudes, could be useful in constructing a rule to distinguish between earthquakes and nuclear explosions.
+
+-   The clear distinction between the two types of events in terms of their magnitudes might allow for the application of a simple classification model, like a linear classifier, to effectively separate the two categories.
+
+These insights would be valuable in creating a machine learning model to classify the seismic events accurately. The next steps would typically involve applying classification algorithms to the data and validating their performance in distinguishing between the two types of seismic events.
+
+## **Machine Learning Part (B)**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Part (b)----------------------------------------------------
+library(caret)
+library(randomForest)
+library(e1071)
+
+set.seed(123) 
+data$type <- as.factor(data$type)
+
+# Split the data into features and target variable
+features <- data[, c("body", "surface")]
+target <- data$type
+
+# Fit SVM model
+svm_model <- svm(type ~ ., data = data, kernel = "radial", probability = TRUE)
+
+# Model evaluation with leave-one-out cross-validation using SVM
+svm_loocv <- caret::train(type ~ ., data = data, method = "svmRadial",
+                          trControl = trainControl(method = "LOOCV", classProbs = TRUE, summaryFunction = twoClassSummary),
+                          metric = "ROC")
+support_vectors <- data[svm_model$index,]
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot the data and highlight the support vectors
+ggplot(data, aes(x = body, y = surface, color = type)) +
+  geom_point() +
+  geom_point(data = support_vectors, aes(x = body, y = surface), shape = 4, size = 3, stroke = 2) +
+  labs(title = "SVM Support Vectors",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+```
+
+```{r echo=FALSE}
+
+# Predict on new data (replace 'new_data' with your actual new data frame)
+new_data <- data.frame(body = c(5.0), surface = c(4.0))  # Example new data point
+predictions <- predict(svm_model, newdata = new_data)
+probabilities <- attr(predictions, "probabilities")  
+predictions
+probabilities
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Create a grid to cover the feature space
+grid <- expand.grid(body = seq(min(data$body), max(data$body), length.out = 100),
+                    surface = seq(min(data$surface), max(data$surface), length.out = 100))
+
+# Predict on the grid
+grid$predict <- predict(svm_model, newdata = grid)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot the decision boundary
+ggplot(data, aes(x = body, y = surface, color = type)) +
+  geom_point() +
+  geom_tile(data = grid, aes(fill = predict, alpha = 0.5), color = NA) +
+  scale_fill_manual(values = c("white", "black")) +
+  labs(title = "SVM Decision Boundary",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Fit logistic regression with a lower threshold for convergence
+logit_model <- glm(type ~ body + surface, data = data, family = "binomial", 
+                   control = glm.control(maxit = 50, epsilon = 1e-8))
+
+coef_logit <- coef(logit_model)
+
+# Function to calculate decision boundary
+boundary_f <- function(body) {
+  (-coef_logit["(Intercept)"] - coef_logit["body"] * body) / coef_logit["surface"]
+}
+
+# Generate a sequence of body values for plotting the decision boundary
+body_seq <- seq(from = min(data$body), to = max(data$body), length.out = 100)
+
+# Calculate corresponding surface values on the decision boundary
+surface_seq <- boundary_f(body_seq)
+
+# Create a new data frame for plotting the decision boundary
+boundary_data <- data.frame(body = body_seq, surface = surface_seq)
+```
+
+```{r echo=FALSE, message=FALSE}
+
+# Plot the decision boundary
+ggplot(data, aes(x = body, y = surface, color = type)) +
+  geom_point() +
+  geom_line(data = boundary_data, aes(x = body, y = surface), color = "black") +
+  labs(title = "Logistic Regression Decision Boundary",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Random Forest
+
+# Tune hyperparameters: number of trees (ntree) and number of variables to possibly split at each node (mtry)
+tune_rf <- train(type ~ body + surface, data = data, method = "rf",
+                 tuneLength = 5,  # number of different parameter combinations
+                 trControl = trainControl(method = "LOOCV"))  # leave-one-out cross-validation
+
+
+# Best tuned Random Forest model
+rf_model <- tune_rf$finalModel
+
+# Create a grid to predict over
+grid <- with(data, expand.grid(body = seq(min(body), max(body), length.out = 100),
+                               surface = seq(min(surface), max(surface), length.out = 100)))
+
+# Predict using the random forest
+grid$predict <- predict(rf_model, newdata = grid, type = "class")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot the prediction contour map
+ggplot(data, aes(x = body, y = surface, color = type)) +
+  geom_point() +
+  geom_tile(data = grid, aes(fill = predict, alpha = 0.5), color = NA) +
+  scale_fill_manual(values = c("white", "black")) +
+  labs(title = "Random Forest Prediction Contour", x = "Body-wave magnitude (mb)", y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Model evaluation with leave-one-out cross-validation
+
+# Logistic Regression
+logit_loocv <- caret::train(type ~ ., data = data, method = "glm",
+                            trControl = trainControl(method = "LOOCV", classProbs = TRUE),
+                            family = "binomial")
+
+# Random Forest
+rf_loocv <- caret::train(type ~ ., data = data, method = "rf",
+                         trControl = trainControl(method = "LOOCV"),
+                         tuneGrid = data.frame(mtry = tune_rf$bestTune$mtry))
+
+
+logit_results <- logit_loocv$results
+rf_results <- rf_loocv$results
+
+logit_results
+rf_results
+```
+
+**Model Selection Justification:**
+
+Logistic Regression is chosen because it is a fundamental classification algorithm particularly suited for binary classification problems. It models the probability that an instance belongs to a particular class.
+
+Random Forest is an ensemble learning method that builds multiple decision trees and merges them for a more accurate and stable prediction. It is less likely to overfit than a single decision tree and is good at handling complex interactions between features.
+
+**Model Tuning:**
+
+The logistic regression model does not have hyperparameters that need tuning for its basic version.
+
+For the random forest, we tuned the number of trees (ntree) and the number of variables to split at each node (mtry). The tuning is done using leave-one-out cross-validation (LOOCV), which is a good choice for small datasets because it uses the maximum amount of data for training. However, the output suggests that there was only one unique complexity parameter in the default grid, which indicates that perhaps the grid could be expanded or customised further for more extensive tuning.
+
+**Model Evaluation:**
+
+The LOOCV results for logistic regression show an accuracy of approximately 94.59% with a Kappa statistic of about 0.877, which indicates a high level of agreement between predicted and actual values, correcting for chance.
+
+The random forest classifier has an even higher LOOCV accuracy of approximately 97.30% and a Kappa statistic of about 0.937, suggesting an excellent predictive performance.
+
+**Comments on the Results and Graphs:**
+
+The logistic regression model has provided a high level of accuracy, which is quite good for a simple linear model. This suggests that the relationship between the predictors (body and surface) and the response variable (type) may be approximately linear.
+
+The random forest model has achieved a higher accuracy than logistic regression, indicating that the model's additional complexity and ability to capture non-linear relationships may benefit this dataset.
+
+The contour plot for random forest provides an intuitive visualisation of how predictions vary across the feature space, with different regions corresponding to different predicted explosion types. Both classifiers have performed well, but the random forest has a slight edge regarding predictive accuracy.
+
+## **Machine Learning Part (C)**
+
+Summary of the Classifiers, comparison and recommendation:
+
+**Performance Metrics:**
+
+-   **Logistic Regression**:
+
+    -   Accuracy: 0.946
+
+    -   Kappa: 0.877
+
+    -   High accuracy and Kappa, but warnings indicate possible overfitting or separation issues.
+
+-   **Random Forest**:
+
+    -   Accuracy: 0.973
+
+    -   Kappa: 0.937
+
+    -   Highest accuracy and Kappa, indicating excellent performance across metrics.
+
+**Advantages and Disadvantages:**
+
+-   **Logistic Regression**:
+
+    -   **Advantages**: Simple, interpretable, effective with small datasets, provides outcome probabilities.
+
+    -   **Disadvantages**: Assumes linearity, sensitive to outliers, may underperform with non-linear relationships.
+
+-   **Support Vector Machine (SVM)**:
+
+    -   **Advantages**: Effective in high-dimensional spaces, can model non-linear boundaries, good with non-linearly separable data.
+
+    -   **Disadvantages**: Less interpretable, computationally demanding, requires careful tuning.
+
+-   **Random Forest**:
+
+    -   **Advantages**: Handles non-linear data well, less sensitive to outliers, manages feature interactions, robust to overfitting.
+
+    -   **Disadvantages**: Less interpretable than logistic regression, computationally expensive, may struggle with noisy data.
+
+**Overall Recommendation:**
+
+-   The **Random Forest** classifier is recommended due to its superior accuracy and Kappa scores, its robustness in handling non-linear relationships and interactions between features, and its ensemble nature that helps prevent overfitting.
+
+-   **Justification** for the recommendation includes Random Forest's ability to handle complex data relationships, higher performance metrics, and robustness.
+
+In conclusion, the Random Forest classifier is recommended for classifying explosion types based on seismic features, attributed to its strong performance in accuracy and kappa statistics and suitability for complex data structures.
+
+## **Machine Learning Part (D)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Part (d)----------------------------------------------
+
+data_to_cluster <- data[, c("body", "surface")]
+
+# Standardize the data
+data_to_cluster <- scale(data_to_cluster)
+
+set.seed(123)  # for reproducibility
+wcss <- sapply(1:10, function(k){
+  kmeans(data_to_cluster, centers = k, nstart = 25)$tot.withinss
+})
+
+# Plot the elbow method to find optimal number of clusters
+plot(1:10, wcss, type = "b", xlab = "Number of clusters", ylab = "Within-cluster sum of squares", main = "Elbow Method")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Suppose 2 or 3 clusters are optimal
+set.seed(123)
+kmeans_result_2 <- kmeans(data_to_cluster, centers = 2, nstart = 25)
+kmeans_result_3 <- kmeans(data_to_cluster, centers = 3, nstart = 25)
+
+# Adding the clusters to the data frame
+data$cluster_2 <- kmeans_result_2$cluster
+data$cluster_3 <- kmeans_result_3$cluster
+
+# Plot the clusters
+ggplot(data, aes(x = body, y = surface, color = factor(cluster_2))) +
+  geom_point() +
+  labs(title = "K-Means Clustering with K=2",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+
+ggplot(data, aes(x = body, y = surface, color = factor(cluster_3))) +
+  geom_point() +
+  labs(title = "K-Means Clustering with K=3",
+       x = "Body-wave magnitude (mb)",
+       y = "Surface-wave magnitude (Ms)") +
+  theme_minimal()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Calculate the average silhouette width for 2 and 3 clusters
+library(cluster)
+sil_width_2 <- silhouette(kmeans_result_2$cluster, dist(data_to_cluster))
+mean(sil_width_2[, 3])
+
+sil_width_3 <- silhouette(kmeans_result_3$cluster, dist(data_to_cluster))
+mean(sil_width_3[, 3])
+```
+
+**Summary:**
+
+-   **Elbow Method Plot**: This method indicates the optimal number of clusters by looking for the point where the WCSS no longer decreases significantly. For the data in question, the elbow point suggests that the optimal number of clusters is either 2 or 3.
+
+-   **K-means Clustering**: Models with K=2 and K=3 have been trained. In the K=2 model, two distinct clusters emerged, one with lower and another with higher magnitude data points, color-coded as red and blue. In the K=3 model, a third cluster appears, indicating a middle group with moderate magnitudes, color-coded as green.
+
+-   **Average Silhouette Width**: This metric was used to evaluate the clustering results. For K=2, the average silhouette width was approximately 0.414, which suggests moderate separation between clusters. For K=3, the silhouette width increased to about 0.494, indicating a better distinction between the clusters.
+
+**Interpretation**: The K=3 cluster model appears to provide a more refined segmentation of the seismic data, potentially identifying a third category that was not distinguished when using only two clusters.
+
+**Comments on Findings**: The clustering seems useful, with the different clusters possibly correlating to different magnitudes of seismic events. However, without specific 'type' information, such as labels indicating whether an event is an earthquake or an explosion, the interpretation remains speculative.
+
+# First Sub-Task: Frequentist One-way Analysis of Variance
+
+## **Bayesian Statistics Part (A)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics One-way Analysis of Variance----------------------------------------------------------
+# First Sub-task
+# Bayesian Statistics Part (a)-------------------------------------------------
+airline_data <- read.csv('airline.csv')
+
+# Boxplot of satisfaction scores for each airline
+ggplot(airline_data, aes(x = airline, y = satisfactionscore, fill = airline)) +
+  geom_boxplot() +
+  labs(title = "Customer Satisfaction Scores by Airline",
+       x = "Airline",
+       y = "Satisfaction Score") +
+  stat_summary(fun = mean, 
+               geom = "point", 
+               shape = 18, 
+               size = 3, 
+               color = "darkblue", 
+               show.legend = FALSE) +
+  stat_summary(fun = mean, 
+               geom = "text", 
+               aes(label = round(..y.., digits = 2)), 
+               color = "darkblue", 
+               show.legend = FALSE, 
+               vjust = -0.7) +
+  theme_minimal()
+```
+
+**From the boxplot, we can make several observations:**
+
+-   **Airlines Satisfaction Overview**:
+
+    -   Four airlines (A, B, C, D) are evaluated based on customer satisfaction scores.
+
+    -   Satisfaction scores are represented by a boxplot for each airline.
+
+-   **Individual Airline Analysis**:
+
+    -   **Airline A**: Median score of 4.33 with a tight score distribution.
+
+    -   **Airline B**: Median score of 5.67 with a wider score distribution than Airline A.
+
+    -   **Airline C**: Median score of 4.47, similar score range to Airline B but with a lower median.
+
+    -   **Airline D**: Highest median score of 6.33 and the widest score range, indicating high variability in satisfaction.
+
+-   **Data Representation Details**:
+
+    -   Each boxplot shows the median score (central tendency) and the interquartile range (IQR) (variability).
+
+    -   Whiskers on the boxplots indicate the overall range of scores, excluding outliers.
+
+    -   No outliers are present in the data for any airline.
+
+-   **Comparative Insights**:
+
+    -   **Central Tendency**: Airline D has the highest median satisfaction score.
+
+    -   **Variability**: Airline A shows the least variability, while Airlines C and D have more variability in customer satisfaction.
+
+    -   **Range**: Airlines B and D have a broader range of scores, indicating more diverse customer opinions.
+
+    -   **Skewness**: Airlines B and D's score distributions are skewed towards higher ratings.
+
+-   **Conclusions**:
+
+    -   **Airline D** is rated the best for median customer satisfaction but also has the greatest variability in scores.
+
+    -   **Airline A** offers consistent service quality with less variability but lower satisfaction scores.
+
+    -   **Airlines B and C** have mixed customer responses with more variability in their satisfaction scores.
+
+## **Bayesian Statistics Part (B)**
+
+In the described one-way Analysis of Variance (ANOVA) model, the parameter α4 represents the difference in the mean satisfaction score between Airline 4 and Airline 1.
+
+-   yij ∼ N(µij , σ^2^ ),: This indicates that the satisfaction score (`yij`) for the j-th customer on the i-th airline is normally distributed with a mean satisfaction score of `µij` and a common variance `σ2`.
+
+-   `µ1j = µ1`: This specifies that the mean satisfaction score for all customers of Airline 1 is `µ1`, which serves as the baseline mean. (µ1) is the mean satisfaction score for customers of Airline 1.
+
+-   `µ2j = µ1 + α2`: The mean satisfaction score for Airline 2 is modelled as the baseline mean plus an additional effect, `α2`. ( µ2 ) is the mean satisfaction score for customers of Airline 2, and it is modeled as the mean of Airline 1 plus an adjustment factor α2.
+
+-   `µ3j = µ1 + α3`: Similarly, the mean satisfaction score for Airline 3 is the baseline mean plus `α3`. ( µ3 ) is the mean satisfaction score for customers of Airline 3, and it is modeled as the mean of Airline 1 plus an adjustment factor α3.
+
+-   `µ4j = µ1 + α4`: For Airline 4, the mean satisfaction score is the baseline mean plus `α4`. ( µ4 ) is the mean satisfaction score for customers of Airline 4, and it is modeled as the mean of Airline 1 plus an adjustment factor α4.
+
+Thus, α4 quantifies the extent to which the average satisfaction score of Airline 4 differs from that of Airline 1. If α4 is positive, it indicates that Airline 4 has a higher mean satisfaction score than Airline 1, whereas a negative α4 would suggest that Airline 4 has a lower mean satisfaction score than Airline 1. If α4 is zero, it would mean that the mean satisfaction scores of Airline 1 and Airline 4 are the same.
+
+Therefore, α4 represents how much higher or lower the average satisfaction score for Airline 4 is compared to Airline 1. If α4 is positive, it suggests that customers are, on average, more satisfied with Airline 4 than with Airline 1. If α~4~ is negative, it suggests the opposite – that customers are less satisfied with Airline 4 compared to Airline 1. If α4 is zero, it would imply that there is no difference in the average satisfaction score between Airline 4 and Airline 1.
+
+## **Bayesian Statistics Part (C)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics Part (c)--------------------------------
+# Fit the linear model
+model <- lm(satisfactionscore ~ airline, data = airline_data)
+
+# Summarise the model to get estimates
+summary(model)
+
+# ANOVA to test the hypothesis
+anova_model <- anova(model)
+anova_model
+summary(anova_model)
+coef(anova_model)
+
+```
+
+-   **Mean Satisfaction Scores:**
+
+    -   Airline 1 (A) has a baseline mean satisfaction score of 4.3333.
+
+-   **Differences in Satisfaction Scores Relative to Airline 1**:
+
+    -   Airline 2 (B) has a higher mean satisfaction score by 1.3333 points (statistically significant).
+
+    -   Airline 3 (C) has a higher mean satisfaction score by 0.1333 points (not statistically significant).
+
+    -   Airline 4 (D) has a higher mean satisfaction score by 2.0000 points (statistically significant).
+
+-   **Statistical Significance:**
+
+    -   The difference for Airline B is significant with a p-value of 0.02852.
+
+    -   The difference for Airline C is not significant with a p-value of 0.82294.
+
+    -   The difference for Airline D is highly significant with a p-value of 0.00136.
+
+-   **ANOVA Results:**
+
+    -   The F-statistic is 5.29, indicating the presence of at least one significant difference in mean satisfaction scores among the airlines.
+
+    -   The p-value of 0.00278 from the ANOVA confirms that these differences are statistically significant at a 0.05 significance level.
+
+-   **Conclusions:**
+
+    -   There is statistically significant evidence that Airline D has a notably higher customer satisfaction score compared to Airline A, followed by Airline B, which also scores higher but to a lesser extent.
+
+    -   Airline C's satisfaction score is not significantly different from Airline A.
+
+    -   The findings suggest that not all airlines have the same mean satisfaction score, with Airlines B and D differing significantly from Airline A, while Airline C has a similar satisfaction score to Airline A.
+
+## **Bayesian Statistics Part (D)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics Part (d)-------------------------------------------
+# Perform Tukey HSD test
+tukey_test <- TukeyHSD(aov(satisfactionscore ~ airline, data = airline_data))
+tukey_test
+
+```
+
+The output from the Tukey Honest Significant Difference (HSD) test provides the differences in mean satisfaction scores (**`diff`**), the lower (**`lwr`**) and upper (**`upr`**) bounds of the 95% confidence intervals for these differences, and the adjusted p-values (**`p adj`**) for all pairwise comparisons between the airlines.
+
+Here are the results for the pairwise comparisons between airlines:
+
+-   Airline B vs. Airline A (B-A): The difference in mean satisfaction scores is 1.3333 with a p-value of 0.1229720. This difference is not statistically significant at the 0.05 level.
+
+-   Airline C vs. Airline A (C-A): The difference is 0.1333 with a p-value of 0.9959461, which is not statistically significant.
+
+-   Airline D vs. Airline A (D-A): The difference is 2.0000 with a p-value of 0.0072205, which is statistically significant.
+
+-   Airline C vs. Airline B (C-B): The difference is -1.2000 with a p-value of 0.1917762, which is not statistically significant.
+
+-   Airline D vs. Airline B (D-B): The difference is 0.6667 with a p-value of 0.6763548, which is not statistically significant.
+
+-   Airline D vs. Airline C (D-C): The difference is 1.8667 with a p-value of 0.0136641, which is statistically significant.
+
+Based on the Tukey HSD test, we can make the following conclusions:
+
+-   There is a statistically significant difference in mean satisfaction scores between Airline D and Airline A, with Airline D scoring higher on average.
+
+-   There is also a statistically significant difference between Airline D and Airline C, with Airline D again scoring higher.
+
+-   There are no significant differences in the mean satisfaction scores between Airline B and Airline A, Airline C and Airline A, Airline C and Airline B, or Airline D and Airline B at the 0.05 significance level.
+
+The confidence intervals provide a range of values that are likely to contain the true mean difference between the airlines. A confidence interval that includes zero (as seen in the comparisons B-A, C-A, C-B, and D-B) suggests that the true difference might be zero, which is consistent with not rejecting the null hypothesis of equal means for these comparisons. Thus, the only statistically significant differences in customer satisfaction scores are between Airline D and Airline A and Airline C. There is no significant evidence to suggest that the satisfaction scores for Airline B differ from those of the other airlines. These findings imply that Airline D could be considered superior in terms of customer satisfaction compared to Airlines A and C. At the same time, no conclusion can be drawn about its superiority compared to Airline B based on this test. The results from the Tukey HSD test provide a more detailed understanding of the differences in customer satisfaction scores among the airlines. Airline D appears to be rated significantly higher than both Airlines A and C, suggesting it has a competitive advantage in customer satisfaction. The lack of significant differences between the other pairs of airlines indicates that their customer satisfaction scores are relatively similar.
+
+## **Bayesian Statistics Part (E)**
+
+To address the question of whether the satisfaction score for Airline D is more than 3 points higher than the average satisfaction score for Airline B and C, you would set up the following hypotheses:
+
+-   Null Hypothesis (H~0~): The satisfaction score for Airline D is less than or equal to 3 points higher than the average satisfaction score for Airline B and C. Mathematically, this could be represented as (µD - (µB + µC)/2) ≤ 3.
+
+-   Alternative Hypothesis (H~1~): The satisfaction score for Airline D is more than 3 points higher than the average satisfaction score for Airline B and C. Mathematically, this could be represented as (µD - (µB + µC)/2) \> 3.
+
+To test this hypothesis, we need to compare the estimated mean satisfaction score for Airline D with the average of the estimated mean satisfaction scores for Airlines B and C. However, the Tukey HSD test results provided earlier do not give us this comparison directly. Instead, we can use the estimates from the linear model to calculate this difference. From the Tukey HSD results, we have the following estimated differences:
+
+-   Airline D vs. Airline A (D-A): 2.0000
+
+-   Airline B vs. Airline A (B-A): 1.3333
+
+-   Airline C vs. Airline A (C-A): 0.1333
+
+To find the average satisfaction score for Airlines B and C, we can calculate:\
+(µB + µC)/2 = (µA + α~2~ + µA + α~3~)/2 = µA + (α~2~ + α~3~)/2
+
+The estimated difference between Airline D's satisfaction score and the average for Airlines B and C would be:\
+µD - (µB + µC)/2 = (µA + α~4~) - (µA + (α~2~ + α~3~)/2)
+
+Given the estimates from the model:\
+µA + α~4~ = 4.3333 + 2.0000 = 6.3333\
+µA + (α~2~ + α~3~)/2 = 4.3333 + (1.3333 + 0.1333)/2 ≈ 4.3333 + 0.7333 = 5.0667
+
+The estimated difference is therefore:
+
+6.3333 - 5.0667 = 1.2666
+
+Looking at the results from the Tukey HSD test we've provided, we can calculate the average difference between airline D and airlines B and C and compare this to the value of 3.
+
+From the Tukey HSD test:
+
+-   The mean difference between D and B (D-B) is 0.6667.
+
+-   The mean difference between D and C (D-C) is 1.8667.
+
+Assuming equal weighting, the average of these differences would be (0.6667 + 1.8667) / 2 = 1.2667.
+
+This average difference is not more than 3 points.
+
+Therefore, based on the data and the Tukey HSD test results, we do not have evidence to reject the null hypothesis at the 0.05 significance level. This means that we do not have sufficient evidence to conclude that the satisfaction score for Airline D is more than 3 points higher than the average satisfaction score for Airlines B and C. Therefore, we would conclude that the satisfaction score for Airline D is not more than 3 points higher than the average satisfaction score for Airlines B and C.
+
+# Second Sub-Task: Bayesian Two-ways Analysis of Variance
+
+## **Bayesian Statistics Part (F)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Second Sub-task
+# Bayesian Statistics Part (f)-------------------------------------------------------
+library(R2jags)
+library(coda)
+library(ggplot2)
+library(ggmcmc)
+
+two_way_anova <- function(){
+  # Define the data model
+  for(i in 1:I){ # Loop across fields
+    for(j in 1:J){ # Loop across treatments
+      y_mat[i,j] ~ dnorm(mu[i,j], tau) # Parametrized by the precision tau = 1 / sigma^2
+      mu[i,j] <- m + alpha[i] + beta[j]
+    }
+  }
+  
+  # Constraints for identifiability
+  alpha[1] <- 0 # Corner constraint
+  beta[1] <- 0 # Corner constraint
+  
+  # Priors on unknown parameters
+  m ~ dnorm(0.0, 1.0E-4) # Prior on m
+  
+  for(i in 2:I){
+    alpha[i] ~ dnorm(0.0, 1.0E-4) # Prior on non-constrained alphas
+  }
+  
+  for(j in 2:J){
+    beta[j] ~ dnorm(0.0, 1.0E-4) # Prior on non-constrained betas
+  }
+  
+  tau ~ dgamma(1.0E-3, 1.0E-3) # Prior on tau
+  #
+  # Also monitor sigma
+  #
+  sigma <- 1.0 / sqrt(tau) # Definition of sigma
+}
+
+# Data
+y <- c(
+  208, 216, 220, 226, 209,
+  194, 212, 218, 239, 224,
+  199, 211, 227, 227, 221
+)
+
+#
+field <- gl(3, 5, 15) # 3 levels, each repeated 5 times, a total of 15
+field
+
+#
+technique <- gl(5, 1, 15) # 5 levels, each repeated once, a total of 15
+technique
+I <- 3 # Number of fields
+J <- 5 # Number of techniques
+
+# Express y as a matrix
+y_mat <- matrix(y, byrow = TRUE, nrow = I, ncol = J)
+y_mat
+
+# Run the Bayesian analysis
+data_two_way_anova <- list("y_mat", "I", "J")
+#
+Bayesian_two_way_anova <- jags(
+  data = data_two_way_anova,
+  parameters.to.save = c("m", "alpha", "beta", "tau", "sigma"),
+  n.iter = 100000,
+  n.chains = 3,
+  model.file = two_way_anova
+)
+
+# Summarize the posterior probability density functions
+print(Bayesian_two_way_anova, intervals = c(0.025, 0.5, 0.975))
+
+Bayesian_two_way_anova.mcmc <- as.mcmc(Bayesian_two_way_anova)
+Bayesian_two_way_anova.ggs <- ggs(Bayesian_two_way_anova.mcmc)
+```
+
+From the output, we can see the following results:
+
+#### **Mean (µ) - Global Mean Level of Carbon Sequestration**
+
+-   **Posterior mean (`m`)**: 198.939
+
+-   **95% credible interval**: [187.816, 209.371]
+
+The global mean level of carbon sequestration (**`m`**) is estimated at about 198.939 units, with a 95% credible interval suggesting that we can be 95% confident that the true mean level of carbon sequestration across all fields and treatments is between approximately 187.816 and 209.371 units.
+
+#### **Field Effects (αi) - Variability Due to Fields**
+
+-   **`alpha[2]`**: Posterior mean = 1.947, 95% credible interval = [-7.642, 11.847]
+
+-   **`alpha[3]`**: Posterior mean = 1.468, 95% credible interval = [-7.972, 11.494]
+
+The field effects show that there is some variability due to fields, but the 95% credible intervals for both **`alpha[2]`** and **`alpha[3]`** include zero, which suggests that the differences might not be statistically significant.
+
+#### **Treatment Effects (βj) - Variability Due to Treatments**
+
+-   **`beta[2]`**: Posterior mean = 12.859, 95% credible interval = [0.216, 25.901]
+
+-   **`beta[3]`**: Posterior mean = 21.563, 95% credible interval = [8.947, 34.552]
+
+-   **`beta[4]`**: Posterior mean = 30.595, 95% credible interval = [18.025, 43.300]
+
+-   **`beta[5]`**: Posterior mean = 17.963, 95% credible interval = [5.245, 31.514]
+
+The treatment effects (**`beta[2]`**, **`beta[3]`**, **`beta[4]`**, and **`beta[5]`**) all have posterior means significantly different from zero, as their 95% credible intervals do not include zero. This indicates that these treatments have different effects on carbon sequestration.
+
+#### **Precision (τ) and Standard Deviation (σ) - Variability in Carbon Sequestration**
+
+-   **Standard deviation (`sigma`)**: Posterior mean = 7.611, 95% credible interval = [4.673, 13.122]
+
+-   **Precision (`tau`)**: Posterior mean = 0.021, 95% credible interval = [0.006, 0.046]
+
+The standard deviation (**`sigma`**) quantifies the variability in carbon sequestration measurements not explained by the field or treatment effects. It is relatively low, suggesting that the measurements are quite consistent. The precision (**`tau`**) is the inverse of variance and further confirms this low variability.
+
+#### **Convergence and Model Fit Indicators**
+
+-   **Rhat**: Values are close to 1 for all parameters, suggesting that convergence has been achieved.
+
+-   **Effective sample size (`n.eff`)**: High values for most parameters, suggesting that there is a sufficient number of independent samples for reliable estimates.
+
+-   **DIC**: The DIC value is 118.1, which by itself doesn't mean much, but could be used to compare to other models if they were present.
+
+## **Bayesian Statistics Part (G)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics Part g----------------------------------------------------------------
+# Plot the traceplots and posterior densities
+
+ggs_traceplot(Bayesian_two_way_anova.ggs, family = "m")
+
+ggs_traceplot(Bayesian_two_way_anova.ggs, family="alpha")
+
+ggs_traceplot(Bayesian_two_way_anova.ggs, family="beta")
+```
+
+Here's an interpretation of the traceplots:
+
+#### **Global Mean Level of Carbon Sequestration (m)**
+
+-   The trace for 'm' indicates good mixing and convergence across all three chains, as the traces overlap and fluctuate within a consistent range without showing any trends.
+
+#### **Standard Deviation (sigma)**
+
+-   The trace for 'sigma' also shows good mixing and convergence. However, there are some spikes which may indicate occasional larger jumps in the sampled values. This is not necessarily an issue, but it suggests there may be some parts of the posterior distribution that are less smoothly sampled.
+
+#### **Field Effects (alpha[1], alpha[2], alpha[3])**
+
+-   'alpha[1]' is fixed at zero as part of the model constraints for identifiability, so its traceplot is a flat line at zero.
+
+-   'alpha[2]' and 'alpha[3]' are the parameters for the field effects. Both parameters show good mixing and convergence, as indicated by the overlapping traces. The fluctuations are contained within a range and do not exhibit any trends, suggesting that the chains are stable.
+
+#### **Treatment Effects (beta[1] through beta[5])**
+
+-   **'beta[1]'**: This parameter is set to zero due to model constraints for identifiability, similar to 'alpha[1]', so its traceplot is a straight line at zero.
+
+-   **'beta[2]'**: The traceplot shows good convergence with the chains well-mixed and stable across iterations, indicating that the posterior distribution for this parameter is likely well-estimated.
+
+-   **'beta[3]'**: Similar to 'beta[2]', this parameter also displays good convergence and mixing, with no apparent trends over the iterations.
+
+-   **'beta[4]'**: The traceplot for 'beta[4]' shows consistent behaviour akin to 'beta[2]' and 'beta[3]', with all three chains overlapping and showing good convergence.
+
+-   **'beta[5]'**: This traceplot also indicates good convergence and mixing, with the chains fluctuating around a stable range of values.
+
+From these traceplots, we can infer that the MCMC chains for the parameters appear to have reached convergence, indicating that the posterior distributions should be reliable for further analysis. Good convergence implies that the sample should adequately represent the posterior distribution of the parameters, allowing for meaningful inference to be drawn from the model.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggs_density(Bayesian_two_way_anova.ggs, family="m") + xlim(-30, 250)
+
+ggs_density(Bayesian_two_way_anova.ggs, family="alpha") + xlim(-15, 25)
+
+ggs_density(Bayesian_two_way_anova.ggs, family="beta") + xlim(-10, 55)
+```
+
+#### **Posterior Density for Global Mean Level (m)**
+
+-   The plot for 'm' shows a unimodal distribution that is quite narrow, centred around a value slightly below 200. This suggests that there is a high degree of certainty in the estimate of the global mean level of carbon sequestration. The peak of the distribution indicates the most probable value, and the narrowness reflects the precision of this estimate.
+
+#### **Posterior Density for Standard Deviation (sigma)**
+
+-   The plot for 'sigma' is also unimodal and sharply peaks close to a value slightly above 0, with a long tail extending to the right. The peak close to the lower end of the scale implies that the standard deviation of carbon sequestration measurements is estimated to be low, indicating that the data points are not spread out widely from the mean, hence suggesting consistency in the measurements across fields and treatments.
+
+#### **Posterior Density for Field Effect (alpha[1])**
+
+-   The plot for 'alpha[1]' is a single spike at zero, which is consistent with the model constraint that fixes this parameter at zero for identifiability purposes. There is no variability in this parameter, as indicated by the lack of spread in the distribution.
+
+#### **Posterior Density for Field Effect (alpha[2])**
+
+-   The plot for 'alpha[2]' shows a unimodal distribution centred around a value close to zero, with a small spread of values indicating some uncertainty in the estimate. The 95% credible interval for this parameter likely includes zero, given the density around that point, suggesting that the field effect may not be statistically significant.
+
+#### **Posterior Density for Field Effect (alpha[3])**
+
+-   The plot for 'alpha[3]' is similar to that for 'alpha[2]', with a unimodal distribution centred around zero and a small spread of sampled values. This also suggests some uncertainty and indicates that the field effect for 'alpha[3]' may not be statistically significant.
+
+#### **Posterior Density for Treatment Effect (beta[1])**
+
+-   The plot for 'beta[1]' shows a spike at zero, which is in line with the model constraint that fixes this parameter at zero for identifiability purposes; hence, there is no variance in this parameter.
+
+#### **Posterior Density for Treatment Effect (beta[2])**
+
+-   The plot for 'beta[2]' depicts a unimodal distribution centred slightly above zero with moderate spread. This indicates there is some certainty about this treatment's effect, but the spread suggests there is still a degree of uncertainty.
+
+#### **Posterior Density for Treatment Effect (beta[3])**
+
+-   The plot for 'beta[3]' is also unimodal and centred slightly above zero, similar to 'beta[2]'. The distribution shows that this treatment likely has a positive effect on carbon sequestration, with a moderate level of certainty.
+
+#### **Posterior Density for Treatment Effect (beta[4])**
+
+-   The plot for 'beta[4]' has a unimodal distribution with a peak that is higher than those of 'beta[2]' and 'beta[3]', suggesting a stronger effect of this treatment on carbon sequestration. The spread is relatively moderate, indicating that there is some uncertainty around the precise effect size.
+
+#### **Posterior Density for Treatment Effect (beta[5])**
+
+-   The plot for 'beta[5]' shows a unimodal distribution centred slightly above zero with a moderate spread of values, indicating that this treatment has a positive effect on carbon sequestration, although there is some uncertainty about the magnitude of the effect.
+
+## **Bayesian Statistics Part (H)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics Part h---------------------------------------------------------------
+# Plot of 95% credible intervals for the parameters
+
+ggs_caterpillar(Bayesian_two_way_anova.ggs, family="m") + xlim(-30, 250)
+
+ggs_caterpillar(Bayesian_two_way_anova.ggs, family="alpha") + xlim(-15, 25)
+
+ggs_caterpillar(Bayesian_two_way_anova.ggs, family="beta") + xlim(-10, 55)
+
+```
+
+-   **'m'**: The plot for the global mean level of carbon sequestration (m) shows a very narrow HPD interval, which suggests a high degree of certainty about the estimate of 'm'. The point estimate (the dot) is located just below 200, and the interval is tightly around this estimate, not extending far from the mean.
+
+-   **'sigma'**: The plot for 'sigma', which represents the standard deviation of carbon sequestration measurements, shows a more spread out HPD interval but still relatively narrow, indicating a moderate degree of certainty about this estimate. The point estimate is close to 10, and the interval is mostly contained below 50.
+
+-   **'alpha[1]'**: As expected, this parameter is fixed at zero, which is why the point estimate and the HPD interval are a single point at zero. This is a common practice for identifiability in models with multiple levels of a factor.
+
+-   **'alpha[2]'** and **'alpha[3]'**: Both parameters have HPD intervals that span both sides of zero and include zero within their range, suggesting that there is not enough evidence to conclude that these field effects are significantly different from zero. The intervals are wide, indicating a higher degree of uncertainty about these estimates.
+
+-   **'beta[1]'**: Consistent with the model's constraints, the HPD interval for 'beta[1]' is a single point at zero, indicating that this parameter is fixed and serves as a reference level for comparing the effects of other treatments.
+
+-   **'beta[2]'**: The HPD interval for 'beta[2]' is centred slightly above 10, does not include zero, and the interval is relatively narrow. This suggests that the treatment corresponding to 'beta[2]' has a significant positive effect on the outcome, and the estimate is made with a moderate degree of certainty.
+
+-   **'beta[3]'**: The HPD interval for 'beta[3]' is also centred above 10, wider than 'beta[2]', but still does not include zero. This indicates that the treatment corresponding to 'beta[3]' also has a positive and significant effect on the outcome.
+
+-   **'beta[4]'**: This parameter has a higher point estimate and a wide HPD interval, which does not include zero. This suggests a significant positive effect of 'beta[4]' on the outcome, with some uncertainty regarding the magnitude of the effect.
+
+-   **'beta[5]'**: The HPD interval for 'beta[5]' is centred around 20, does not include zero, and is of moderate width. This indicates that the treatment corresponding to 'beta[5]' has a significant positive effect on the outcome.
+
+Based on the results from the Bayesian analysis, as visualised in the caterpillar plots for the treatment effects (**`beta`**) and field effects (**`alpha`**), we can draw the following conclusions:
+
+### **Treatment Effects**
+
+The credible intervals for the treatment effects parameters **`beta[2]`** through **`beta[5]`** do not include zero, which indicates that these treatments are estimated to have a significant effect on the underlying total carbon value compared to the baseline treatment (**`beta[1]`**). Specifically:
+
+-   **`beta[2]`**: Shows a significant positive effect on carbon sequestration with a moderate degree of certainty.
+
+-   **`beta[3]`**: Also indicates a significant positive effect, with a degree of uncertainty similar to **`beta[2]`**.
+
+-   **`beta[4]`**: Suggests a significant positive effect, potentially larger than **`beta[2]`** and **`beta[3]`**, but with more uncertainty regarding the magnitude of the effect.
+
+-   **`beta[5]`**: Has a significant positive effect on carbon sequestration, with a moderate level of certainty similar to **`beta[2]`** and **`beta[3]`**.
+
+### **Field Effects**
+
+The credible intervals for the field effects parameters **`alpha[2]`** and **`alpha[3]`** include zero, indicating that there is not enough evidence to conclude that the field location has a significant effect on the total carbon value. The credible intervals are wide, reflecting a higher degree of uncertainty about these estimates. The parameter **`alpha[1]`** is set to zero for model identifiability and does not provide information about the effect of field location.
+
+### **Conclusion**
+
+The analysis suggests that the application of different treatments has a significant impact on the total carbon value. Each of the treatments represented by **`beta[2]`** through **`beta[5]`** is associated with an increase in carbon sequestration compared to the baseline treatment. This conclusion is justified by the fact that the 95% credible intervals for these treatment effects do not overlap with zero, indicating that the effects are statistically significant.
+
+In contrast, the field location does not appear to have a significant effect on the carbon value. The credible intervals for **`alpha[2]`** and **`alpha[3]`** include zero, suggesting that the differences in carbon sequestration between different fields are not statistically significant, and therefore, any variation by field location is not supported by the data.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+summary(Bayesian_two_way_anova)
+
+plot(as.mcmc(Bayesian_two_way_anova))
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m <- lm(y ~ field + technique)
+m 
+
+confint(m)
+
+Bayesian_two_way_anova$BUGSoutput$summary[c("m",
+                                            "alpha[2]",
+                                            "alpha[3]",
+                                            "beta[2]",
+                                            "beta[3]",
+                                            "beta[4]",
+                                            "beta[5]"),
+                                          c("mean",
+                                            "50%",
+                                            "2.5%",
+                                            "97.5%")]
+
+anova(m)
+
+```
+
+## **Bayesian Statistics Part (I)**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Bayesian Statistics part (i)-------------------------------------------------------------------------------------
+library(R2jags)
+library(coda)
+library(ggplot2)
+library(ggmcmc)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Bayesian_anova_2 <- function(){
+  # Define the data model
+  for(i in 1:I){ # Loop across fields
+    for(j in 1:J){ # Loop across treatments
+      y_mat[i,j] ~ dnorm(mu[i,j], tau) # Parametrized by the precision tau = 1 / sigma^2
+      mu[i,j] <- m + alpha[i] + beta[j]
+    }
+  }
+  
+  # Constraints for identifiability
+  alpha[1] <- 0 # Corner constraint
+  beta[1] <- 0 # Corner constraint
+  
+  # Priors on unknown parameters
+  m ~ dnorm(0.0, 1.0E-4) # Prior on m
+  
+  for(i in 2:I){
+    alpha[i] ~ dnorm(0.0, 1.0E-4) # Prior on non-constrained alphas
+  }
+  
+  for(j in 2:J){
+    beta[j] ~ dnorm(0.0, 1.0E-4) # Prior on non-constrained betas
+  }
+  
+  # Calculate the differences between beta[4] and the other betas
+  delta_beta_4_1 <- beta[4] - beta[1]
+  delta_beta_4_2 <- beta[4] - beta[2]
+  delta_beta_4_3 <- beta[4] - beta[3]
+  delta_beta_4_5 <- beta[4] - beta[5]
+  
+  tau ~ dgamma(1.0E-3, 1.0E-3) # Prior on tau
+  sigma <- 1.0 / sqrt(tau) # Definition of sigma
+}
+
+# Data
+y <- c(
+  208, 216, 220, 226, 209,
+  194, 212, 218, 239, 224,
+  199, 211, 227, 227, 221
+)
+
+#
+field <- gl(3, 5, 15) # 3 levels, each repeated 5 times, a total of 15
+field
+
+#
+technique <- gl(5, 1, 15) # 5 levels, each repeated once, a total of 15
+technique
+I <- 3 # Number of fields
+J <- 5 # Number of techniques
+
+# Express y as a matrix
+y_mat <- matrix(y, byrow = TRUE, nrow = I, ncol = J)
+y_mat
+
+data_two_way_anova <- list("y_mat", "I", "J")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Bayesian_anova_inference_2 <- jags(
+  data = data_two_way_anova,
+  parameters.to.save = c("m", "alpha", "beta", "delta_beta_4_1", "delta_beta_4_2", "delta_beta_4_3", "delta_beta_4_5", "tau", "sigma"),
+  n.iter = 100000,
+  n.chains = 3,
+  model.file = Bayesian_anova_2
+)
+
+# Summarize the posterior probability density functions
+print(Bayesian_anova_inference_2, intervals = c(0.025, 0.5, 0.975))
+
+Bayesian_anova_inference_2.mcmc <- as.mcmc(Bayesian_anova_inference_2)
+Bayesian_anova_inference_2.ggs <- ggs(Bayesian_anova_inference_2.mcmc)
+```
+
+### **Field Effects (`alpha`)**
+
+-   **`alpha[1]`**: Fixed at 0 for identifiability (as expected).
+
+-   **`alpha[2]`**: The posterior mean is 1.973 with a 95% credible interval from -7.685 to 12.417.
+
+-   **`alpha[3]`**: The posterior mean is 1.659 with a 95% credible interval from -8.647 to 12.177.
+
+The credible intervals for both **`alpha[2]`** and **`alpha[3]`** include zero, which suggests that there is no strong evidence of a significant field effect on carbon sequestration levels.
+
+### **Treatment Effects (`beta`)**
+
+-   **`beta[1]`**: Fixed at 0 for identifiability (as expected).
+
+-   **`beta[2]`**: The posterior mean is 13.115 with a 95% credible interval from 0.722 to 26.531.
+
+-   **`beta[3]`**: The posterior mean is 21.584 with a 95% credible interval from 8.675 to 34.004.
+
+-   **`beta[4]`**: The posterior mean is 30.699 with a 95% credible interval from 17.498 to 44.136.
+
+-   **`beta[5]`**: The posterior mean is 17.954 with a 95% credible interval from 5.377 to 30.926.
+
+All **`beta`** coefficients have credible intervals that do not include zero, indicating significant effects of these treatments on carbon sequestration compared to the baseline treatment.
+
+### **Differences Between Treatment T4 and Others (`delta_beta_4_x`)**
+
+-   **`delta_beta_4_1`**: The difference between **`beta[4]`** and **`beta[1]`** has a posterior mean of 30.699, with a credible interval from 17.498 to 44.136.
+
+-   **`delta_beta_4_2`**: The difference between **`beta[4]`** and **`beta[2]`** has a posterior mean of 17.584, with a credible interval from 4.118 to 31.379.
+
+-   **`delta_beta_4_3`**: The difference between **`beta[4]`** and **`beta[3]`** has a posterior mean of 9.115, with a credible interval from -3.680 to 22.381.
+
+-   **`delta_beta_4_5`**: The difference between **`beta[4]`** and **`beta[5]`** has a posterior mean of 12.745, with a credible interval from -0.268 to 26.215.
+
+The credible intervals for **`delta_beta_4_2`**, **`delta_beta_4_3`**, and **`delta_beta_4_5`** include zero, which suggests that there is not enough evidence to claim that treatment T4 has a significantly different effect on carbon sequestration compared to treatments T2, T3, and T5. The credible interval for **`delta_beta_4_1`** does not include zero, which indicates a significant difference between treatment T4 and the baseline treatment T1.
+
+### **Other Parameters**
+
+-   **`m`**: The overall mean carbon sequestration level has a posterior mean of 198.740 with a credible interval from 187.701 to 209.710.
+
+-   **`sigma`**: The standard deviation of carbon sequestration measurements has a posterior mean of 7.700 with a credible interval from 4.655 to 13.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot the traceplot for the new parameter 
+ggs_traceplot(Bayesian_anova_inference_2.ggs, family = "delta_beta_4_1")
+ggs_traceplot(Bayesian_anova_inference_2.ggs, family = "delta_beta_4_2")
+ggs_traceplot(Bayesian_anova_inference_2.ggs, family = "delta_beta_4_3")
+ggs_traceplot(Bayesian_anova_inference_2.ggs, family = "delta_beta_4_5")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# plot the posterior densities for the new parameters
+ggs_density(Bayesian_anova_inference_2.ggs, family="delta_beta_4_1")
+ggs_density(Bayesian_anova_inference_2.ggs, family="delta_beta_4_2")
+ggs_density(Bayesian_anova_inference_2.ggs, family="delta_beta_4_3")
+ggs_density(Bayesian_anova_inference_2.ggs, family="delta_beta_4_5")
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot of 95% credible intervals for the parameters
+
+ggs_caterpillar(Bayesian_anova_inference_2.ggs, family="delta_beta_4_1") + xlim(-30, 250)
+
+ggs_caterpillar(Bayesian_anova_inference_2.ggs, family="delta_beta_4_2") + xlim(-30, 250)
+
+ggs_caterpillar(Bayesian_anova_inference_2.ggs, family="delta_beta_4_3") + xlim(-30, 250)
+
+ggs_caterpillar(Bayesian_anova_inference_2.ggs, family="delta_beta_4_5") + xlim(-30, 250)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(Bayesian_anova_inference_2)
+```
+
+# Third Sub-Task: Simpler Bayesian model
+
+## **Bayesian Statistics Part (J)**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Define the simpler Bayesian model
+model_string <- function(){
+  for(i in 1:I){ # Loop across rows (Machines)
+    for(j in 1:J){ # Loop across columns (Operators)
+      # Note that y_mat is a matrix
+      y_mat[i,j] ~ dnorm(mu[i,j], tau) # Parametrized by the precision tau = 1 / sigmaˆ2
+      mu[i,j] <- m + beta[j]
+    }
+  }
+  #
+  # Constraints for identifiability
+  #
+  beta[1] <- 0 # Corner constraint
+  #
+  # Priors on unknown parameters
+  #
+  m ~ dnorm(0.0, 1.0E-4) # Prior on m
+  #
+  for(j in 2:J){
+    beta[j] ~ dnorm(0.0, 1.0E-4) # Prior on non-constrained betas
+  }
+  tau ~ dgamma(1.0E-3, 1.0E-3) # Prior on tau
+  
+  sigma <- 1.0 / sqrt(tau) # Definition of sigma
+}
+
+
+
+# Data
+y <- c(
+  208, 216, 220, 226, 209,
+  194, 212, 218, 239, 224,
+  199, 211, 227, 227, 221
+)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+field <- gl(3, 5, 15) # 3 levels, each repeated 5 times, a total of 15
+field
+
+#
+technique <- gl(5, 1, 15) # 5 levels, each repeated once, a total of 15
+technique
+I <- 3 # Number of fields
+J <- 5 # Number of techniques
+
+# Express y as a matrix
+y_mat <- matrix(y, byrow = TRUE, nrow = I, ncol = J)
+y_mat
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+data_simpler_bayesian <- list("y_mat", "I", "J")
+#
+Simpler_Bayesian_anova <- jags(
+  data = data_simpler_bayesian,
+  parameters.to.save = c("m", "beta", "tau", "sigma"),
+  n.iter = 100000,
+  n.chains = 3,
+  model.file = model_string
+)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Summarize the posterior probability density functions
+print(Simpler_Bayesian_anova, intervals = c(0.025, 0.5, 0.975))
+
+
+Simpler_Bayesian_anova.mcmc <- as.mcmc(Simpler_Bayesian_anova)
+Simpler_Bayesian_anova.ggs <- ggs(Simpler_Bayesian_anova.mcmc)
+```
+
+### **Treatment Effects (`beta`)**
+
+-   **`beta[1]`**: Fixed at 0, serving as the reference level for other treatments.
+
+-   **`beta[2]`**: Has a posterior mean of 12.848 with a 95% credible interval ranging from 1.695 to 24.069, indicating a significant positive effect compared to the baseline.
+
+-   **`beta[3]`**: The posterior mean is 21.356 with a 95% credible interval from 10.153 to 32.590, also showing a significant positive effect.
+
+-   **`beta[4]`**: The posterior mean is 30.452 with a 95% credible interval from 19.232 to 41.802, suggesting a strong and significant positive effect.
+
+-   **`beta[5]`**: The posterior mean is 17.825 with a 95% credible interval from 6.396 to 29.319, indicating a significant positive effect as well.
+
+All **`beta`** parameters, except for the baseline **`beta[1]`**, demonstrate significant effects on carbon sequestration due to the credible intervals not including zero.
+
+### **Overall Mean (`m`)**
+
+-   The overall mean carbon sequestration (`m`) has a posterior mean of 200.121 with a 95% credible interval between 191.865 and 208.052.
+
+### **Standard Deviation (`sigma`)**
+
+-   The posterior mean for the standard deviation (`sigma`) is 6.756, with a 95% credible interval from 4.419 to 10.713, reflecting the variability of the data around the overall mean.
+
+### **Precision (`tau`)**
+
+-   The precision (`tau`), which is the inverse of the variance, has a posterior mean of 0.026 and a 95% credible interval from 0.009 to 0.051.
+
+### **Model Diagnostics**
+
+-   The `Rhat` values are close to 1 for all parameters, indicating that convergence has likely been reached across the chains.
+
+-   The effective sample sizes (`n.eff`) are adequate for all parameters except `beta[2]` and `m`, suggesting some caution in interpreting these particular estimates.
+
+### **Deviance Information Criterion (DIC)**
+
+-   The DIC value is 108.4 with a pD (effective number of parameters) of 9.4. The DIC provides a balance between model fit and complexity, where a lower value generally indicates a better model.
+
+In summary, the analysis demonstrates significant positive effects of the treatments on carbon sequestration compared to the baseline, with **`beta[4]`** showing the largest effect. The model appears to be well-fitted with good convergence properties.
+
+## **Bayesian Statistics Part (K)**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Bayesian Statistics part (k)-------------------------------------------------------------------------------------
+
+# Plot the traceplots and posterior densities
+
+ggs_traceplot(Simpler_Bayesian_anova.ggs, family = "m")
+
+ggs_traceplot(Simpler_Bayesian_anova.ggs, family="beta")
+```
+
+Observations from the trace plots:
+
+1.  **Overall Mean (`m`)**: The trace for **`m`** indicates that all three chains are fluctuating around the same range, suggesting good mixing and that convergence has likely been achieved.
+
+2.  **Standard Deviation (`sigma`)**: The traceplot for **`sigma`** also shows good mixing and stability across the chains, with no evident trends or drifts, which is indicative of convergence.
+
+3.  **Treatment Effects (`beta` parameters)**:
+
+    -   **`beta[1]`**: As expected, there is no movement in the traceplot for `beta[1]` because it is fixed at 0.
+
+    -   **`beta[2]` to `beta[5]`**: The traces for `beta[2]` to `beta[5]` all show stable fluctuations around their respective means, with the chains well overlapped and no apparent non-stationarity. This indicates good convergence for these parameters as well.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggs_density(Simpler_Bayesian_anova.ggs, family="m") + xlim(-30, 250)
+
+ggs_density(Simpler_Bayesian_anova.ggs, family="beta") + xlim(-10, 55)
+```
+
+Observations from the density plots:
+
+-   **Overall Mean (`m`)**: The density plot for **`m`** is tightly concentrated around a value slightly above 200, indicating that there is a high degree of certainty in the posterior estimate of the overall mean of carbon sequestration across all treatments and fields.
+
+-   **Standard Deviation (`sigma`)**: The density plot for **`sigma`** is also quite peaked, centred around a value near 7, suggesting that the posterior estimate of the standard deviation is also quite precise. The distribution tails off quickly, reflecting a lower probability for very high or very low values of **`sigma`**.
+
+-   **`beta[1]`**: As expected, the density plot for **`beta[1]`** is a spike at 0 because this parameter was fixed to provide a baseline for comparison with other treatment effects.
+
+-   **`beta[2]`**: The density plot for **`beta[2]`** is centred around a value just above 10, with a relatively narrow spread, indicating a precise estimate and a significant treatment effect.
+
+-   **`beta[3]`**: The plot for **`beta[3]`** is centred around a value above 20, also with a narrow spread, suggesting a strong and significant treatment effect.
+
+-   **`beta[4]`**: The density plot for **`beta[4]`** shows a peak around 30 with a somewhat wider spread, yet still indicating a substantial and significant treatment effect.
+
+-   **`beta[5]`**: The plot for **`beta[5]`** is centred close to 20, similar to **`beta[3]`**, with a narrow spread, suggesting a significant treatment effect as well.
+
+All density plots for **`beta[2]`** to **`beta[5]`** are well above zero, consistent with the previous analysis that indicated significant effects of these treatments on carbon sequestration when compared to the baseline treatment (which corresponds to **`beta[1]`**). The consistency of the estimates across the three chains for each parameter supports the reliability of the model's output.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Plot of 95% credible intervals for the parameters
+
+ggs_caterpillar(Simpler_Bayesian_anova.ggs, family="m") + xlim(-30, 250)
+
+ggs_caterpillar(Simpler_Bayesian_anova.ggs, family="beta") + xlim(-10, 55)
+```
+
+Observations from the caterpillar plot:
+
+-   **Overall Mean (`m`)**: The 95% HPD interval for **`m`** is narrow, stretching just above and below 200, with a solid dot representing the median or mean of the posterior distribution. This indicates a high degree of certainty in the estimate of the overall mean carbon sequestration.
+
+-   **Standard Deviation (`sigma`)**: The 95% HPD interval for **`sigma`** is much wider relative to the interval for **`m`**, which is typical for scale parameters like standard deviation. Nonetheless, the interval is relatively concentrated, with its entire range below 20, suggesting a moderate level of uncertainty.
+
+-   **`beta[1]`**: As expected, the HPD interval for **`beta[1]`** is a single point at 0 because this parameter was fixed during the analysis to serve as a reference level for the other treatments.
+
+-   **`beta[2]`**: The 95% HPD interval for **`beta[2]`** does not include 0, and the solid dot is positioned well above 0, indicating a significant positive effect of this treatment compared to the baseline.
+
+-   **`beta[3]`**: Similarly, the HPD interval for **`beta[3]`** is entirely above 0, with the solid dot indicating the central tendency, which reflects a significant positive treatment effect.
+
+-   **`beta[4]`**: This treatment effect has the widest HPD interval among the treatments, but it is still entirely above 0, denoting a significant positive effect, and the central dot is located towards the upper end of the interval.
+
+-   **`beta[5]`**: The HPD interval for **`beta[5]`** is also above 0, showcasing a significant positive effect of this treatment, with the solid dot near the middle of the interval.
+
+    ```{r}
+    summary(Simpler_Bayesian_anova)
+    ```
+
+## **Bayesian Statistics Part (L)**
+
+Between the full and simpler Bayesian models, we would lean towards the simpler model. Here's why:
+
+-   **Performance**: Both models seem to perform adequately, with Rhat values close to 1 indicating convergence and effective sample sizes generally high. However, the simpler model has slightly better convergence indicators with higher effective sample sizes across parameters.
+
+-   **Interpretability**: The simpler model tends to be easier to interpret and communicate due to its fewer parameters. It focuses only on the treatment effects (beta) and the global mean level (m), which can be more straightforward for stakeholders to understand.
+
+-   **Similar Results**: While the simpler model excludes field effects (alpha), it still provides estimates for treatment effects and the global mean level of carbon sequestration. The credible intervals for these parameters are quite similar between the two models, suggesting that the simpler model captures the essential information without unnecessary complexity.
+
+-   **Lower DIC**: The Deviance Information Criterion (DIC) is lower for the simpler model (108.4) compared to the full model (118.1). A lower DIC indicates better model fit, suggesting that the simpler model might provide more accurate predictions.
+
+Considering these factors, the simpler model appears to strike a good balance between performance and simplicity, making it preferable in this scenario.
