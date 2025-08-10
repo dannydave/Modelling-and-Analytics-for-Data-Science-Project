@@ -1,1 +1,1 @@
-# Modelling-and-Analytics-for-Data-Science-Coursework
+# Modelling-and-Analytics-for-Data-Science
